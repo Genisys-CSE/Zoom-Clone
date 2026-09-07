@@ -7,6 +7,7 @@ Security model (demo-grade, explained honestly in README):
   host_token      per-meeting capability for the WS + waiting-room bypass,
                   returned ONCE at create/claim.
 """
+import os
 import random
 import secrets
 import sqlite3
@@ -36,7 +37,9 @@ app = FastAPI(title="Zoom Clone API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    # Comma-separated in prod, e.g. FRONTEND_ORIGIN=https://zoom-clone.vercel.app
+    allow_origins=[o.strip() for o in os.environ.get(
+        "FRONTEND_ORIGIN", "http://localhost:3000").split(",") if o.strip()],
     allow_credentials=True,  # lets the browser send the session cookie
     allow_methods=["*"],
     allow_headers=["*"],

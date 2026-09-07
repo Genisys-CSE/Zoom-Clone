@@ -8,10 +8,12 @@ Tables:
   messages      1:1 chat history for the Chat tab
 """
 import hashlib
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "zoom.db"
+# Overridable for deploys with a persistent disk, e.g. DB_FILE=/data/zoom.db
+DB_PATH = Path(os.environ.get("DB_FILE", Path(__file__).parent / "zoom.db"))
 
 # App-wide password salt. Demo-grade (no per-user salt, no stretching) —
 # production uses bcrypt + JWT sessions.
