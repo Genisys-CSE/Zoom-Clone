@@ -117,9 +117,9 @@ export default function ChatView() {
   const peer = peers.find((p) => p.id === peerId);
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full flex-col sm:flex-row">
       {/* Conversation list */}
-      <div className="flex w-[240px] shrink-0 flex-col border-r border-line">
+      <div className="flex max-h-40 shrink-0 flex-col overflow-y-auto border-b border-line sm:max-h-none sm:w-[240px] sm:border-b-0 sm:border-r">
         <h3 className="px-4 pb-1 pt-3 text-[15px] font-bold">Chats</h3>
         {peers.length === 0 && (
           <p className="px-4 py-6 text-[13px] text-ink-secondary">No one to chat with yet.</p>

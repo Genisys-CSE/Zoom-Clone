@@ -204,7 +204,7 @@ export default function MeetingsTab() {
       </div>
 
       {/* ---- Right panel: detail, padding 48px 40px ---- */}
-      <div className="min-w-0 flex-1 overflow-y-auto px-10 pb-10 pt-12">
+      <div className="min-w-0 flex-1 overflow-y-auto px-4 pb-10 pt-6 md:px-10 md:pt-12">
         {editing ? (
           <div className="mb-8 flex items-center gap-2">
             <input

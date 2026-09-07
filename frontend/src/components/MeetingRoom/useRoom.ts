@@ -23,6 +23,18 @@ const WS_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").repl
 );
 
 const STUN = [{ urls: "stun:stun.l.google.com:19302" }];
+// Free TURN relay for peers whose NAT blocks direct P2P (e.g. phone on
+// mobile data + PC on home WiFi). Without relay candidates, cross-network
+// calls connect ICE-wise never — this is the #1 "can't see each other" cause.
+const TURN_USER = "openrelayproject";
+const TURN_CRED = "openrelayproject";
+const ICE_SERVERS = [
+  ...STUN,
+  { urls: "stun:openrelay.metered.ca:80" },
+  { urls: "turn:openrelay.metered.ca:80", username: TURN_USER, credential: TURN_CRED },
+  { urls: "turn:openrelay.metered.ca:443", username: TURN_USER, credential: TURN_CRED },
+  { urls: "turns:openrelay.metered.ca:443?transport=tcp", username: TURN_USER, credential: TURN_CRED },
+];
 
 // Full-mesh WebRTC room over the FastAPI signaling socket.
 // Whoever is already inside offers to each newcomer (peer-joined),
@@ -41,6 +53,10 @@ export function useRoom(
   const [chat, setChat] = useState<RoomChat[]>([]);
   const pcs = useRef(new Map<string, RTCPeerConnection>());
   const wsRef = useRef<WebSocket | null>(null);
+  // ICE candidates that arrive before the remote description is set would
+  // be dropped — on slow networks that kills the call. Queue per peer,
+  // drain right after setRemoteDescription.
+  const pendingIce = useRef(new Map<string, RTCIceCandidateInit[]>());
   const selfIdRef = useRef("");
   const optsRef = useRef(opts);
   optsRef.current = opts;
@@ -71,10 +87,15 @@ export function useRoom(
     function getPc(id: string): RTCPeerConnection {
       const existing = pcs.current.get(id);
       if (existing) return existing;
-      const pc = new RTCPeerConnection({ iceServers: STUN });
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
       local!.getTracks().forEach((t) => pc.addTrack(t, local!));
       pc.onicecandidate = (e) => {
         if (e.candidate) send({ kind: "ice", to: id, candidate: e.candidate });
+      };
+      // Dead ICE (wrong network path) auto-retries with fresh candidates
+      // instead of leaving a black tile forever.
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "failed") pc.restartIce();
       };
       pc.ontrack = (e) => {
         const stream = e.streams[0] ?? new MediaStream([e.track]);
@@ -100,9 +121,24 @@ export function useRoom(
       send({ kind: "offer", to: id, sdp: offer.sdp, type: offer.type });
     }
 
+    // Remote description is now set — flush anything that arrived early.
+    async function drainIce(id: string) {
+      const pc = pcs.current.get(id);
+      const queued = pendingIce.current.get(id) ?? [];
+      pendingIce.current.delete(id);
+      for (const c of queued) {
+        try {
+          await pc?.addIceCandidate(c);
+        } catch {
+          /* stale candidate — safe to drop */
+        }
+      }
+    }
+
     async function answerPeer(from: string, sdp: string, type: RTCSdpType) {
       const pc = getPc(from);
       await pc.setRemoteDescription({ sdp, type });
+      await drainIce(from);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       send({ kind: "answer", to: from, sdp: answer.sdp, type: answer.type });
@@ -126,17 +162,28 @@ export function useRoom(
           break;
         case "answer":
           await pc(msg.from)?.setRemoteDescription({ sdp: msg.sdp, type: msg.type });
+          await drainIce(msg.from);
           break;
-        case "ice":
-          try {
-            await pc(msg.from)?.addIceCandidate(msg.candidate);
-          } catch {
-            /* candidate arrived before remote description — safe to drop */
+        case "ice": {
+          const target = pc(msg.from);
+          if (target?.remoteDescription) {
+            try {
+              await target.addIceCandidate(msg.candidate);
+            } catch {
+              /* stale candidate — safe to drop */
+            }
+          } else {
+            // Remote description isn't here yet — hold it, don't drop it.
+            const q = pendingIce.current.get(msg.from) ?? [];
+            q.push(msg.candidate);
+            pendingIce.current.set(msg.from, q);
           }
           break;
+        }
         case "peer-left":
           pcs.current.get(msg.id)?.close();
           pcs.current.delete(msg.id);
+          pendingIce.current.delete(msg.id);
           setPeers((ps) => ps.filter((p) => p.id !== msg.id));
           break;
         case "chat":

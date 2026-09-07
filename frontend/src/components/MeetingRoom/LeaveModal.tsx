@@ -21,7 +21,7 @@ export default function LeaveModal({
       onClick={onCancel}
     >
       <div
-        className="w-[360px] rounded-lg bg-white p-6 text-ink"
+        className="mx-4 w-full max-w-[360px] rounded-lg bg-white p-6 text-ink"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-[16px] font-semibold">Leave meeting?</h2>

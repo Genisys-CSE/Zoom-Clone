@@ -268,7 +268,7 @@ export default function HomeTab() {
       </header>
 
       {/* Actions: gap 60px, mb 24px */}
-      <div className="mb-6 flex items-start justify-center gap-[60px]">
+      <div className="mb-6 flex items-start justify-center gap-6 sm:gap-[60px]">
         {/* New meeting with dropdown */}
         <div className="relative flex w-[88px] flex-col items-center">
           <button

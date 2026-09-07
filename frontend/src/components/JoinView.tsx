@@ -106,8 +106,8 @@ export default function JoinView() {
   }
 
   return (
-    <div className="flex h-full justify-center overflow-y-auto">
-      <div className="w-[400px] pt-24">
+    <div className="flex h-full justify-center overflow-y-auto px-4">
+      <div className="w-full max-w-[400px] pt-16 sm:pt-24">
         <h1 className="text-[22px] font-bold">Join Meeting</h1>
 
         <input

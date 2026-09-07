@@ -77,8 +77,8 @@ export default function ScheduleView() {
   }
 
   return (
-    <div className="flex h-full justify-center overflow-y-auto">
-      <div className="w-[560px] py-10">
+    <div className="flex h-full justify-center overflow-y-auto px-4">
+      <div className="w-full max-w-[560px] py-10">
         <h1 className="text-[22px] font-bold">Schedule a Meeting</h1>
 
         <label className="mt-6 block text-[13px] font-medium">Topic</label>

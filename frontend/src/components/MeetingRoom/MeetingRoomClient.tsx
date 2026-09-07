@@ -356,8 +356,8 @@ export default function MeetingRoomClient({
 
   return (
     <div className="flex h-screen flex-col bg-room text-white">
-      <div className="flex h-12 shrink-0 items-center gap-3 bg-toolbar px-4 text-[13px]">
-        <span className="flex items-center gap-1 text-white/70">
+      <div className="flex h-12 shrink-0 items-center gap-3 overflow-x-auto bg-toolbar px-4 text-[13px]">
+        <span className="flex shrink-0 items-center gap-1 text-white/70">
           <ShieldCheck className="h-4 w-4 text-zoom-green" />
           Protected
         </span>
@@ -377,12 +377,12 @@ export default function MeetingRoomClient({
         <button
           onClick={() => navigator.clipboard?.writeText(meetingId).catch(() => {})}
           title="Copy meeting ID"
-          className="flex items-center gap-1.5 text-white/70 hover:text-white"
+          className="flex shrink-0 items-center gap-1.5 text-white/70 hover:text-white"
         >
           ID {formatMeetingId(meetingId)}
           <Copy className="h-3.5 w-3.5" />
         </button>
-        <span className="flex items-center gap-1.5 text-white/70">
+        <span className="flex shrink-0 items-center gap-1.5 text-white/70">
           <Users className="h-4 w-4" />
           {people.length}
           {selfId ? "" : " connecting…"}

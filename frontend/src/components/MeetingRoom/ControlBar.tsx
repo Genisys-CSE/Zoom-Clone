@@ -56,7 +56,8 @@ export default function ControlBar({
   const off = "bg-zoom-red hover:bg-zoom-red";
 
   return (
-    <div className="flex h-16 shrink-0 items-center justify-center gap-1 bg-toolbar px-4">
+    <div className="flex h-16 shrink-0 items-center gap-1 overflow-x-auto bg-toolbar px-4 sm:justify-center">
+      <div className="flex shrink-0 items-center gap-1">
       <button onClick={onToggleMic} title="Mute/Unmute (Alt+A)" className={`${btn} ${s.micOn ? "" : off}`}>
         {s.micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
       </button>
@@ -130,11 +131,12 @@ export default function ControlBar({
       <div className="flex-1" />
       <button
         onClick={onLeave}
-        className="flex h-10 items-center gap-2 rounded-lg bg-zoom-red px-5 text-sm font-semibold text-white hover:brightness-110"
+        className="flex h-10 shrink-0 items-center gap-2 rounded-lg bg-zoom-red px-5 text-sm font-semibold text-white hover:brightness-110"
       >
         <PhoneOff className="h-4 w-4" />
         Leave
       </button>
+      </div>
     </div>
   );
 }

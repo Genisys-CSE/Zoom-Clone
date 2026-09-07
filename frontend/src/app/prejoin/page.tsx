@@ -186,7 +186,7 @@ function PrejoinInner() {
       </div>
 
       <div className="flex flex-1 items-center justify-center px-4">
-        <div className="relative h-[360px] w-[640px] max-w-full overflow-hidden rounded-xl bg-black">
+        <div className="relative h-[260px] w-[640px] max-w-full overflow-hidden rounded-xl bg-black sm:h-[360px]">
           {!camBlocked && (
             <video
               ref={videoRef}
@@ -235,7 +235,7 @@ function PrejoinInner() {
             inputMode="numeric"
             className="w-48 rounded-md border border-white/20 bg-toolbar px-3 py-2 text-sm outline-none placeholder:text-white/40 focus:border-zoom-blue"
           />
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3">
           <button
             onClick={toggleMic}
             title={micOn ? "Mute" : "Unmute"}
