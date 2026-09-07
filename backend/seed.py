@@ -59,12 +59,12 @@ def main() -> None:
         ensure_meeting(
             conn, "1112223330", "Design Sync",
             scheduled_at=iso(now + timedelta(days=1, hours=2)),
-            duration_min=30, type="scheduled", status="scheduled", host_id=1,
+            duration_min=30, type="scheduled", status="scheduled", host_id=2,
         )
         ensure_meeting(
             conn, "1112223331", "Team Standup",
             scheduled_at=iso(now + timedelta(days=2, hours=-4)),
-            duration_min=15, type="scheduled", status="scheduled", host_id=1,
+            duration_min=15, type="scheduled", status="scheduled", host_id=2,
         )
         # Cross-user test meetings (each user hosts one, the other joins)
         ensure_meeting(
@@ -73,17 +73,12 @@ def main() -> None:
             duration_min=45, type="scheduled", status="scheduled", host_id=2,
         )
         ensure_meeting(
-            conn, "1112223330", "Design Sync",
-            scheduled_at=iso(now + timedelta(days=1, hours=2)),
-            duration_min=30, type="scheduled", status="scheduled", host_id=1,
-        )
-        ensure_meeting(
             conn, "123456789", "Weekly Review",
-            duration_min=42, type="instant", status="ended", host_id=1,
+            duration_min=42, type="instant", status="ended", host_id=2,
         )
         ensure_meeting(
             conn, "987654321", "Client Demo",
-            duration_min=28, type="instant", status="ended", host_id=1,
+            duration_min=28, type="instant", status="ended", host_id=2,
         )
 
     print("seed ok (missing rows inserted, existing data untouched)")

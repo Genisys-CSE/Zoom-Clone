@@ -269,12 +269,37 @@ def start_meeting(meeting_id: str, request: Request):
 def create_scheduled(body: ScheduledCreate, request: Request):
     user = require_session(request)
     with get_conn() as conn:
+        token = secrets.token_hex(16)
         if body.use_pmi:
-            mid = user["pmi"]  # your own PMI — always exists
-        else:
-            mid = generate_meeting_id(conn)
+            # Schedule INTO your existing PMI room (it already exists from
+            # seed) — update it in place instead of inserting a duplicate.
+            row = conn.execute(
+                "SELECT * FROM meetings WHERE meeting_id = ? AND host_id = ?",
+                (user["pmi"], user["id"]),
+            ).fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="PMI room not found")
+            conn.execute(
+                """UPDATE meetings SET topic = ?, description = ?,
+                   scheduled_at = ?, duration_min = ?, timezone = ?,
+                   passcode = ?, waiting_room = ?,
+                   host_video = ?, participant_video = ?,
+                   status = 'scheduled', host_token = ?,
+                   updated_at = datetime('now') WHERE id = ?""",
+                (body.topic, body.description,
+                 f"{body.date}T{body.time}", body.duration_min,
+                 body.timezone, body.passcode, int(body.waiting_room),
+                 int(body.host_video), int(body.participant_video),
+                 token, row["id"]),
+            )
+            meeting = refresh_meeting(conn, row["id"])
+            return {
+                **row_to_meeting(meeting),
+                "host_token": token,
+                "invite_path": f"/prejoin?meetingId={user['pmi']}",
+            }
+        mid = generate_meeting_id(conn)
         try:
-            token = secrets.token_hex(16)
             cur = conn.execute(
                 """INSERT INTO meetings
                    (meeting_id, topic, description, scheduled_at, duration_min,
@@ -767,7 +792,8 @@ async def room_socket(ws: WebSocket, meeting_id: str):
 
     cid = uuid.uuid4().hex[:8]
     room = rooms.setdefault(mid, {})
-    room[cid] = {"ws": ws, "name": name, "is_host": check["is_host"]}
+    room[cid] = {"ws": ws, "name": name, "is_host": check["is_host"],
+                 "pid": check["pid"], "row_id": check["row_id"]}
 
     await ws.send_json({"kind": "welcome", "id": cid, "is_host": check["is_host"]})
     await broadcast(mid, {"kind": "peer-joined", "id": cid, "name": name}, exclude=cid)
@@ -814,8 +840,30 @@ async def room_socket(ws: WebSocket, meeting_id: str):
     except WebSocketDisconnect:
         pass
     finally:
+        me = rooms.get(mid, {}).pop(cid, None)
+        if me is None:
+            return
+        # Headcount honesty: whoever owned this socket is no longer in the
+        # room. Guests carry their participant id; hosts are matched by
+        # meeting + display name (most recent open row).
+        def _stamp_left():
+            with get_conn() as c:
+                if me and me.get("pid"):
+                    c.execute(
+                        "UPDATE participants SET left_at = datetime('now') WHERE id = ? AND left_at IS NULL",
+                        (me["pid"],),
+                    )
+                elif me:
+                    c.execute(
+                        """UPDATE participants SET left_at = datetime('now')
+                           WHERE id = (SELECT id FROM participants
+                                       WHERE meeting_id = ? AND display_name = ? AND left_at IS NULL
+                                       ORDER BY joined_at DESC LIMIT 1)""",
+                        (me.get("row_id"), me.get("name")),
+                    )
+        import asyncio as _asyncio2
+        await _asyncio2.to_thread(_stamp_left)
         room = rooms.get(mid, {})
-        room.pop(cid, None)
         if not room:
             rooms.pop(mid, None)  # don't hoard empty rooms forever
         else:
