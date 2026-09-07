@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* Zoom Clone design tokens — extracted from Zoom PWA real CSS (st1.zoom.us) */
+@theme {
+  --color-zoom-blue: #0e71eb;
+  --color-zoom-blue-hover: #0c63ce;
+  --color-zoom-orange: #ff742e;
+  --color-zoom-green: #0db14b;
+  --color-zoom-red: #e8173d;
+  --color-app-bg: #e2e6e9;
+  --color-ink: #232333;
+  --color-ink-secondary: #747487;
+  --color-line: #ededf4;
+  --color-room: #111820;
+  --color-toolbar: #23272f;
+}
+
+body {
+  background: var(--color-app-bg);
+  color: var(--color-ink);
+  font-family: system-ui, "SF Pro", "Segoe UI", "Almaden Sans", Roboto,
+    Ubuntu, Helvetica, Arial, sans-serif;
+}
