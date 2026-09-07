@@ -30,6 +30,14 @@ SESSION_DAYS = 7
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()  # create tables on startup
+    # Self-seed demo data (idempotent): free-tier disks wipe SQLite on
+    # sleep/restart and there's no Shell access, so the app must be
+    # usable immediately after every boot with zero manual steps.
+    try:
+        from seed import main as run_seed
+        run_seed()
+    except Exception:
+        pass  # DB stays usable; endpoints report their own errors
     yield
 
 
