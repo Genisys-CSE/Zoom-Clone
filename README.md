@@ -5,6 +5,12 @@ dashboard, instant meetings, validated join flow, scheduling, waiting rooms,
 host controls, direct messaging, and user invitations — built with Next.js,
 FastAPI, SQLite, and native WebRTC (no third-party video SDK, no API keys).
 
+## Screenshots
+
+| Dashboard | Live meeting room |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Meeting room](docs/screenshots/meeting-room.png) |
+
 ## Features
 
 ### Dashboard
@@ -132,6 +138,31 @@ backend/
 Demo-grade by design: SHA-256 password hashing, in-process rate-limit counters,
 plaintext HTTP on LAN. Production would use bcrypt + JWT, Redis throttles, and
 TLS — the ownership checks stay identical.
+
+## Assumptions made
+
+- **Two demo users only** (`user1/user1`, `user2/user2`, password == name).
+  No registration page — accounts are seeded, which is enough to demo every
+  host/guest interaction (use a normal window + an incognito window).
+- **One user per browser profile.** Identity is a server-side session cookie;
+  switching users means signing out and back in.
+- **Small rooms (2–4 people).** Media is a full WebRTC mesh, so quality and
+  bandwidth degrade past ~6 participants — a production build would swap in
+  an SFU (e.g. LiveKit) without changing the signaling design.
+- **Same-network media.** No TURN server is configured, so peers behind
+  symmetric NATs may fail to connect; localhost and same-LAN always work.
+- **SQLite + local file.** Fine for a demo and the assignment's required stack;
+  concurrent writers serialize. `seed.py` is idempotent — safe to re-run.
+- **Local recording, not cloud.** The record button captures your own
+  camera+mic to a `.webm` download; there is no server-side recording.
+- **Display names are self-asserted.** Guests type any name; the roster trusts
+  it (real identity would require SSO).
+- **Passcodes are short (6 digits)** and brute-force protection is an
+  in-memory counter (resets on restart) — correct shape, demo scale.
+- **Meeting durations count from room entry**, not wall-clock schedule time,
+  so old test meetings never instantly expire on join.
+- **PMI rooms are permanent** (`idle` → `live` → `idle`); scheduled/instant
+  meetings end permanently. Ending a PMI never deletes it.
 
 ## Deployment
 
