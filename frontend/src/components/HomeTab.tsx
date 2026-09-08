@@ -14,7 +14,7 @@ import {
   Trash2,
   VideoOff,
 } from "lucide-react";
-import { getSessionName, onAuthChange, setSessionName } from "@/lib/session";
+import { getSessionName, onAuthChange } from "@/lib/session";
 import {
   acceptInvite,
   authMe,
@@ -27,7 +27,6 @@ import {
   getInbox,
   getRecent,
   getUpcoming,
-  login,
   saveHostToken,
   startMeeting,
   toRecent,
@@ -59,33 +58,6 @@ export default function HomeTab() {
   const inboxTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   // Calendar day navigation: null = show all upcoming
   const [dayOffset, setDayOffset] = useState<number | null>(null);
-  // Inline sign-in (visible on Home until logged in, then collapses)
-  const [loginName, setLoginName] = useState("");
-  const [loginPass, setLoginPass] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [signingIn, setSigningIn] = useState(false);
-
-  async function handleHomeSignIn() {
-    if (!loginName.trim() || signingIn) return;
-    setSigningIn(true);
-    setLoginError("");
-    try {
-      const u = await login(loginName, loginPass);
-      if (!u) {
-        setLoginError("Wrong name or password");
-        return;
-      }
-      // setSessionName fires the auth event -> loadIdentity reloads ->
-      // this whole card unmounts because userName becomes set.
-      setSessionName(u.name);
-      setLoginName("");
-      setLoginPass("");
-    } catch {
-      setLoginError("Couldn't reach the server");
-    } finally {
-      setSigningIn(false);
-    }
-  }
 
   function loadIdentity() {
     const session = getSessionName();
@@ -289,39 +261,9 @@ export default function HomeTab() {
           {longDate}
         </p>
         {!ready ? null : !userName && (
-          <div className="mt-4 w-[320px] max-w-full rounded-xl border border-line bg-white p-4 shadow-sm">
-            <p className="text-[14px] font-semibold">Sign in to see your meetings</p>
-            <p className="mt-0.5 text-[12px] text-ink-secondary">
-              Demo accounts: user1 / user1 · user2 / user2
-            </p>
-            <input
-              value={loginName}
-              onChange={(e) => setLoginName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleHomeSignIn()}
-              placeholder="Name"
-              autoComplete="username"
-              className="mt-3 w-full rounded-md border border-line px-3 py-1.5 text-[13px] outline-none focus:border-zoom-blue"
-            />
-            <input
-              value={loginPass}
-              onChange={(e) => setLoginPass(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleHomeSignIn()}
-              placeholder="Password"
-              type="password"
-              autoComplete="current-password"
-              className="mt-2 w-full rounded-md border border-line px-3 py-1.5 text-[13px] outline-none focus:border-zoom-blue"
-            />
-            {loginError && (
-              <p className="mt-1 text-[12px] text-zoom-red">{loginError}</p>
-            )}
-            <button
-              onClick={handleHomeSignIn}
-              disabled={!loginName.trim() || signingIn}
-              className="mt-3 w-full rounded-md bg-zoom-blue py-1.5 text-[13px] font-semibold text-white hover:bg-zoom-blue-hover disabled:opacity-40"
-            >
-              {signingIn ? "Signing in…" : "Sign In"}
-            </button>
-          </div>
+          <p className="mt-2 text-[13px] text-zoom-blue">
+            Sign in from the avatar menu to see your meetings
+          </p>
         )}
       </header>
 
