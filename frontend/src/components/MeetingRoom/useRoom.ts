@@ -8,6 +8,7 @@ export interface Peer {
   stream: MediaStream | null;
   micOff: boolean;
   reaction?: string;
+  failed?: boolean;
 }
 
 export interface RoomChat {
@@ -30,9 +31,12 @@ const TURN_USER = "openrelayproject";
 const TURN_CRED = "openrelayproject";
 const ICE_SERVERS = [
   ...STUN,
+  { urls: "stun:stun1.l.google.com:19302" },
   { urls: "stun:openrelay.metered.ca:80" },
   { urls: "turn:openrelay.metered.ca:80", username: TURN_USER, credential: TURN_CRED },
+  { urls: "turn:openrelay.metered.ca:80?transport=tcp", username: TURN_USER, credential: TURN_CRED },
   { urls: "turn:openrelay.metered.ca:443", username: TURN_USER, credential: TURN_CRED },
+  { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: TURN_USER, credential: TURN_CRED },
   { urls: "turns:openrelay.metered.ca:443?transport=tcp", username: TURN_USER, credential: TURN_CRED },
 ];
 
@@ -57,6 +61,9 @@ export function useRoom(
   // be dropped — on slow networks that kills the call. Queue per peer,
   // drain right after setRemoteDescription.
   const pendingIce = useRef(new Map<string, RTCIceCandidateInit[]>());
+  const retryRef = useRef<(id: string) => void>(() => {});
+  const calling = useRef(new Set<string>());
+  const peerNames = useRef(new Map<string, string>());
   const selfIdRef = useRef("");
   const optsRef = useRef(opts);
   optsRef.current = opts;
@@ -87,15 +94,36 @@ export function useRoom(
     function getPc(id: string): RTCPeerConnection {
       const existing = pcs.current.get(id);
       if (existing) return existing;
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceCandidatePoolSize: 10 });
       local!.getTracks().forEach((t) => pc.addTrack(t, local!));
       pc.onicecandidate = (e) => {
         if (e.candidate) send({ kind: "ice", to: id, candidate: e.candidate });
       };
-      // Dead ICE (wrong network path) auto-retries with fresh candidates
-      // instead of leaving a black tile forever.
+      // Renegotiation (e.g. after ICE restart) must actually send the offer —
+      // without this handler restartIce() silently does nothing.
+      pc.onnegotiationneeded = async () => {
+        try {
+          if (pc.signalingState !== "stable") return;
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          send({ kind: "offer", to: id, sdp: offer.sdp, type: offer.type });
+        } catch {
+          /* renegotiation race — the other direction wins */
+        }
+      };
       pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "failed") pc.restartIce();
+        if (pc.connectionState === "failed") {
+          // Mark the tile so the user sees "retry" instead of a dead black box,
+          // then gather fresh (possibly TURN-relayed) candidates.
+          patchPeer(id, { failed: true });
+          try {
+            pc.restartIce();
+          } catch {
+            /* will retry on demand via the tile button */
+          }
+        } else if (pc.connectionState === "connected") {
+          patchPeer(id, { failed: false });
+        }
       };
       pc.ontrack = (e) => {
         const stream = e.streams[0] ?? new MediaStream([e.track]);
@@ -110,16 +138,40 @@ export function useRoom(
     }
 
     async function callPeer(id: string, peerName: string) {
-      setPeers((ps) =>
-        ps.some((p) => p.id === id)
-          ? ps.map((p) => (p.id === id ? { ...p, name: peerName } : p))
-          : [...ps, { id, name: peerName, stream: null, micOff: false }],
-      );
-      const pc = getPc(id);
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      send({ kind: "offer", to: id, sdp: offer.sdp, type: offer.type });
+      // Never run two offers to the same peer at once, and never re-offer
+      // while a handshake is in flight — that glare is what left tiles black.
+      if (calling.current.has(id)) return;
+      const known = pcs.current.get(id);
+      if (known && known.signalingState !== "stable") return;
+      calling.current.add(id);
+      try {
+        peerNames.current.set(id, peerName);
+        setPeers((ps) =>
+          ps.some((p) => p.id === id)
+            ? ps.map((p) => (p.id === id ? { ...p, name: peerName, failed: false } : p))
+            : [...ps, { id, name: peerName, stream: null, micOff: false }],
+        );
+        const pc = getPc(id);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        send({ kind: "offer", to: id, sdp: offer.sdp, type: offer.type });
+      } catch {
+        /* retry comes from the tile button or the next roster */
+      } finally {
+        calling.current.delete(id);
+      }
     }
+
+    // Manual retry from a failed tile: drop the dead connection entirely
+    // and start a fresh handshake. Stored on a ref because send/callPeer
+    // live inside the socket effect but the tile button lives outside it.
+    retryRef.current = async (id: string) => {
+      pcs.current.get(id)?.close();
+      pcs.current.delete(id);
+      pendingIce.current.delete(id);
+      patchPeer(id, { stream: null, failed: false });
+      await callPeer(id, peerNames.current.get(id) ?? "Guest");
+    };
 
     // Remote description is now set — flush anything that arrived early.
     async function drainIce(id: string) {
@@ -136,12 +188,26 @@ export function useRoom(
     }
 
     async function answerPeer(from: string, sdp: string, type: RTCSdpType) {
-      const pc = getPc(from);
-      await pc.setRemoteDescription({ sdp, type });
-      await drainIce(from);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      send({ kind: "answer", to: from, sdp: answer.sdp, type: answer.type });
+      try {
+        const pc = getPc(from);
+        if (pc.signalingState !== "stable") {
+          // Glare: we both offered at once. Deterministic winner — the
+          // larger id keeps its offer; the loser rolls back and answers.
+          if (from < selfIdRef.current) return; // our offer wins, ignore theirs
+          try {
+            await pc.setLocalDescription({ type: "rollback" });
+          } catch {
+            return;
+          }
+        }
+        await pc.setRemoteDescription({ sdp, type });
+        await drainIce(from);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        send({ kind: "answer", to: from, sdp: answer.sdp, type: answer.type });
+      } catch {
+        /* the other direction's handshake continues; retry covers the rest */
+      }
     }
 
     ws.onmessage = async (e) => {
@@ -157,12 +223,32 @@ export function useRoom(
         case "peer-joined":
           if (msg.id !== selfIdRef.current) await callPeer(msg.id, msg.name);
           break;
+        case "roster": {
+          // Catch-up for any peer we missed (rejoin races, dropped
+          // peer-joined). callPeer is idempotent, names always refresh.
+          const list = Array.isArray(msg.peers) ? msg.peers : [];
+          for (const p of list) {
+            if (!p?.id || p.id === selfIdRef.current) continue;
+            peerNames.current.set(p.id, p.name ?? "Guest");
+            setPeers((ps) =>
+              ps.some((x) => x.id === p.id)
+                ? ps.map((x) => (x.id === p.id ? { ...x, name: p.name ?? x.name } : x))
+                : [...ps, { id: p.id, name: p.name ?? "Guest", stream: null, micOff: false }],
+            );
+            if (!pcs.current.has(p.id)) await callPeer(p.id, p.name ?? "Guest");
+          }
+          break;
+        }
         case "offer":
           await answerPeer(msg.from, msg.sdp, msg.type);
           break;
         case "answer":
-          await pc(msg.from)?.setRemoteDescription({ sdp: msg.sdp, type: msg.type });
-          await drainIce(msg.from);
+          try {
+            await pc(msg.from)?.setRemoteDescription({ sdp: msg.sdp, type: msg.type });
+            await drainIce(msg.from);
+          } catch {
+            /* stale/duplicate answer after a rollback — safe to drop */
+          }
           break;
         case "ice": {
           const target = pc(msg.from);
@@ -248,6 +334,10 @@ export function useRoom(
     emit({ kind: "reaction", emoji });
   }
 
+  function retryPeer(id: string) {
+    retryRef.current(id);
+  }
+
   // Swap the outgoing video track on every connection (screen share).
   function replaceVideoTrack(track: MediaStreamTrack) {
     pcs.current.forEach((pc) => {
@@ -255,5 +345,5 @@ export function useRoom(
     });
   }
 
-  return { selfId, isHost, denied, peers, chat, sendChat, sendMute, sendMuteAll, sendMuteOne, sendRemove, sendReaction, replaceVideoTrack };
+  return { selfId, isHost, denied, peers, chat, sendChat, sendMute, sendMuteAll, sendMuteOne, sendRemove, sendReaction, replaceVideoTrack, retryPeer };
 }

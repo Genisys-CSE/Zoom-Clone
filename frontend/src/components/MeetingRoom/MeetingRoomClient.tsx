@@ -73,6 +73,7 @@ export default function MeetingRoomClient({
     sendRemove,
     sendReaction,
     replaceVideoTrack,
+    retryPeer,
   } = useRoom(meetingId, name, local, {
     // These run from socket events, but opts is rebuilt every render,
     // so they always see the current `local` stream — no stale closures.
@@ -244,20 +245,40 @@ export default function MeetingRoomClient({
     setSharing(false);
   }
 
+  // Transient notice (screen-share errors etc.) — auto-clears.
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function showNotice(msg: string) {
+    setNotice(msg);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 4000);
+  }
+
   async function toggleShare() {
     if (sharing) {
       stopSharing();
       return;
     }
+    // getDisplayMedia doesn't exist on insecure origins / old browsers —
+    // without this check the button just silently does nothing.
+    const dm = navigator.mediaDevices?.getDisplayMedia?.bind(navigator.mediaDevices);
+    if (!dm) {
+      showNotice("Screen sharing needs HTTPS — use Chrome or Edge on desktop");
+      return;
+    }
     try {
-      const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screen = await dm({ video: true });
       const track = screen.getVideoTracks()[0];
+      if (!track) {
+        showNotice("No screen track — try sharing a different window");
+        return;
+      }
       screenTrack.current = track;
       replaceVideoTrack(track);
       setSharing(true);
       track.onended = stopSharing;
     } catch {
-      /* user cancelled the share picker */
+      /* user cancelled the share picker — no notice needed */
     }
   }
 
@@ -410,12 +431,18 @@ export default function MeetingRoomClient({
             </button>
           </div>
         )}
+        {notice && (
+          <div className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-lg bg-black/95 px-4 py-2.5 text-[13px] text-white shadow-xl">
+            {notice}
+          </div>
+        )}
         <VideoGrid
           people={people}
           selfVideoRef={selfVideo}
           camOn={camOn}
           selfName={name}
           isHostSelf={isHost}
+          onRetry={(id) => retryPeer(id)}
         />
         {showParticipants && (
           <ParticipantsPanel
