@@ -10,7 +10,6 @@ export interface TilePerson {
   isSelf?: boolean;
   micOff?: boolean;
   stream?: MediaStream | null;
-  reaction?: string;
   failed?: boolean;
 }
 
@@ -126,11 +125,6 @@ export default function VideoGrid({
           {p.micOff && (
             <span className="absolute right-2 top-2 rounded bg-black/60 p-1">
               <MicOff className="h-3.5 w-3.5 text-zoom-red" />
-            </span>
-          )}
-          {p.reaction && (
-            <span className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-2xl">
-              {p.reaction}
             </span>
           )}
           <span className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-0.5 text-[12px] text-white">

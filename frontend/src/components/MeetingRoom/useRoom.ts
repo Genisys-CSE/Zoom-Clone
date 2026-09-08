@@ -7,7 +7,6 @@ export interface Peer {
   name: string;
   stream: MediaStream | null;
   micOff: boolean;
-  reaction?: string;
   failed?: boolean;
 }
 
@@ -278,11 +277,7 @@ export function useRoom(
         case "mute":
           patchPeer(msg.id, { micOff: msg.micOff });
           break;
-        case "reaction":
-          patchPeer(msg.fromId, { reaction: msg.emoji });
-          // Clear the emoji after 3s — transient like real Zoom
-          setTimeout(() => patchPeer(msg.fromId, { reaction: undefined }), 3000);
-          break;
+
         case "mute-all": // host mutes everyone, incl. me
         case "mute-one": // host mutes just me — same local effect
           optsRef.current.onForceMute();
@@ -330,10 +325,6 @@ export function useRoom(
     emit({ kind: "remove", to });
   }
 
-  function sendReaction(emoji: string) {
-    emit({ kind: "reaction", emoji });
-  }
-
   function retryPeer(id: string) {
     retryRef.current(id);
   }
@@ -345,5 +336,5 @@ export function useRoom(
     });
   }
 
-  return { selfId, isHost, denied, peers, chat, sendChat, sendMute, sendMuteAll, sendMuteOne, sendRemove, sendReaction, replaceVideoTrack, retryPeer };
+  return { selfId, isHost, denied, peers, chat, sendChat, sendMute, sendMuteAll, sendMuteOne, sendRemove, replaceVideoTrack, retryPeer };
 }

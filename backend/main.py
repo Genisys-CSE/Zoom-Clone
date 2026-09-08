@@ -831,10 +831,6 @@ async def room_socket(ws: WebSocket, meeting_id: str):
                 await broadcast(
                     mid, {"kind": "mute", "id": cid,
                           "micOff": bool(msg.get("micOff"))}, exclude=cid)
-            elif kind == "reaction":
-                await broadcast(
-                    mid, {"kind": "reaction", "fromId": cid,
-                          "emoji": str(msg.get("emoji", ""))[:8]})
             elif kind == "mute-all":
                 # Host-only: anyone else's request is silently dropped
                 if me.get("is_host"):

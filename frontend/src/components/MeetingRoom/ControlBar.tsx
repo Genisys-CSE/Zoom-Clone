@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   MessageSquare,
   Mic,
@@ -8,7 +7,6 @@ import {
   MonitorUp,
   PhoneOff,
   ShieldCheck,
-  Smile,
   Users,
   Video,
   VideoOff,
@@ -24,8 +22,6 @@ export interface ControlState {
   securityOpen: boolean;
 }
 
-const EMOJIS = ["👏", "👍", "❤️", "😂", "🎉"];
-
 // Bottom toolbar — exact Zoom order. Pure presentational: state in, events out.
 export default function ControlBar({
   s,
@@ -36,7 +32,6 @@ export default function ControlBar({
   onToggleChat,
   onToggleShare,
   onToggleRecord,
-  onReact,
   onLeave,
 }: {
   s: ControlState;
@@ -47,10 +42,8 @@ export default function ControlBar({
   onToggleChat: () => void;
   onToggleShare: () => void;
   onToggleRecord: () => void;
-  onReact: (emoji: string) => void;
   onLeave: () => void;
 }) {
-  const [emojisOpen, setEmojisOpen] = useState(false);
   const btn =
     "flex h-11 min-w-11 items-center justify-center gap-1 rounded-lg px-2 text-white transition-colors hover:bg-white/15";
   const off = "bg-zoom-red hover:bg-zoom-red";
@@ -99,35 +92,6 @@ export default function ControlBar({
       >
         <span className={`h-2.5 w-2.5 rounded-full ${s.recording ? "bg-white" : "border-2 border-white"}`} />
       </button>
-      <div className="relative">
-        <button
-          onClick={() => setEmojisOpen((v) => !v)}
-          title="Reactions"
-          className={`${btn} ${emojisOpen ? "bg-white/15" : ""}`}
-        >
-          <Smile className="h-5 w-5" />
-        </button>
-        {emojisOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setEmojisOpen(false)} />
-            <div className="absolute bottom-14 left-1/2 z-20 flex -translate-x-1/2 gap-1 rounded-full bg-black/90 p-2">
-              {EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  onClick={() => {
-                    onReact(e);
-                    setEmojisOpen(false);
-                  }}
-                  className="rounded-full p-1.5 text-xl hover:bg-white/20"
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
       <div className="flex-1" />
       <button
         onClick={onLeave}

@@ -48,7 +48,6 @@ export default function MeetingRoomClient({
   const [recording, setRecording] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
-  const [selfReaction, setSelfReaction] = useState<string | undefined>();
   const [lobby, setLobby] = useState<LobbyGuest[]>([]);
   const [lobbyPing, setLobbyPing] = useState<LobbyGuest | null>(null);
   const [endedMsg, setEndedMsg] = useState<string | null>(null);
@@ -71,7 +70,6 @@ export default function MeetingRoomClient({
     sendMuteAll,
     sendMuteOne,
     sendRemove,
-    sendReaction,
     replaceVideoTrack,
     retryPeer,
   } = useRoom(meetingId, name, local, {
@@ -314,21 +312,14 @@ export default function MeetingRoomClient({
     }
   }
 
-  function react(emoji: string) {
-    sendReaction(emoji);
-    setSelfReaction(emoji);
-    setTimeout(() => setSelfReaction(undefined), 3000);
-  }
-
   const people: (TilePerson & { id?: string })[] = [
-    { key: "self", name, isSelf: true, micOff: !micOn, reaction: selfReaction },
+    { key: "self", name, isSelf: true, micOff: !micOn },
     ...peers.map((p) => ({
       key: p.id,
       id: p.id,
       name: p.name,
       micOff: p.micOff,
       stream: p.stream,
-      reaction: p.reaction,
     })),
   ];
 
@@ -499,7 +490,6 @@ export default function MeetingRoomClient({
         onToggleChat={() => setShowChat((v) => !v)}
         onToggleShare={toggleShare}
         onToggleRecord={toggleRecord}
-        onReact={react}
         onLeave={() => setLeaveOpen(true)}
       />
 

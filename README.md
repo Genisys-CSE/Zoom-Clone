@@ -65,7 +65,7 @@ FastAPI, SQLite, and native WebRTC (no third-party video SDK, no API keys).
   offers a tap-to-enable overlay instead of staying black and silent.
 - Gallery view, duration countdown with auto-end, screen sharing
   (`replaceTrack`, auto-revert, with clear errors when unavailable), local
-  recording (`.webm` download), emoji reactions, in-meeting chat, participants
+  recording (`.webm` download), in-meeting chat, participants
   roster, waiting-room lobby with admit toast, and host controls
   (mute all/one, remove, end for all).
 
@@ -79,7 +79,7 @@ FastAPI, SQLite, and native WebRTC (no third-party video SDK, no API keys).
 ## Testing with 2 devices simultaneously
 
 The fastest way to evaluate real-time features — video, audio, screen share,
-reactions, waiting room, host controls:
+waiting room, host controls:
 
 1. **Device A** (e.g. PC browser): sign in as `user1`, click New meeting →
    you enter as host.
@@ -88,8 +88,8 @@ reactions, waiting room, host controls:
 3. **Device A:** an "is waiting to join" toast pops — tap **Admit** (or use the
    roster panel). Device B auto-enters.
 4. Now verify cross-device: video both ways, unmute and talk, Share screen
-   from either side, send a reaction (👏 appears on the tile for 3s), try
-   Mute-all / Remove as host (guest requests are dropped server-side).
+   from either side, try Mute-all / Remove as host (guest requests are
+   dropped server-side).
 5. Host taps Leave → End Meeting for All → both devices exit together.
 
 If a tile sticks on "connecting…", wait ~10s: a failed connection flips to a
@@ -162,7 +162,7 @@ except downward.
 | Meetings | `POST /meetings/instant`, `POST /meetings/scheduled`, `GET /meetings/{id}`, `PATCH /meetings/{id}`, `POST /meetings/{id}/start\|end`, `DELETE /meetings/{id}`, `GET /meetings?status=`, `GET /meetings/recent/list`, `GET /meetings/{id}/host-view` |
 | Join flow | `POST /meetings/{id}/join`, `GET /meetings/{id}/admission/{pid}`, `GET /meetings/{id}/lobby`, `POST /meetings/{id}/admit/{pid}`, `POST /meetings/{id}/claim` |
 | Social | `GET /users/search`, `POST /meetings/{id}/invite`, `GET /invites/inbox`, `POST /invites/{id}/accept\|decline`, `GET /messages/thread`, `POST /messages` |
-| Realtime | `WS /ws/{meeting_id}?name=&host=&pid=` — offer/answer/ICE forwarding, chat, mute, reactions, host-only controls, presence, auto-cleanup |
+| Realtime | `WS /ws/{meeting_id}?name=&host=&pid=` — offer/answer/ICE forwarding, chat, mute, host-only controls, presence, auto-cleanup |
 
 ## Security model
 
